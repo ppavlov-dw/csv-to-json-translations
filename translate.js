@@ -69,7 +69,26 @@ const unflattenObject = (obj) => {
   return result;
 };
 
-const run = ({ source, destinations, cwd: inputCwd, core, verbose }) => {
+const getFileLocale = (filePath, source) => {
+  switch (source) {
+    case "filename":
+      return path.basename(filePath, ".json");
+
+    case "dirname":
+      return path.basename(path.dirname(filePath));
+  }
+
+  return null;
+};
+
+const run = ({
+  source,
+  destinations,
+  cwd: inputCwd,
+  core,
+  fileLocaleSource,
+  verbose,
+}) => {
   verbose &&
     console.log(
       "source",
@@ -80,6 +99,8 @@ const run = ({ source, destinations, cwd: inputCwd, core, verbose }) => {
       inputCwd,
       "core",
       core,
+      "fileLocaleSource",
+      fileLocaleSource,
       "verbose",
       verbose
     );
@@ -126,7 +147,7 @@ const run = ({ source, destinations, cwd: inputCwd, core, verbose }) => {
     filePaths.find(
       (filePath) =>
         filePath.includes("core") &&
-        path.basename(filePath, ".json") === sourceLang
+        getFileLocale(filePath, fileLocaleSource) === sourceLang
     );
   console.log(
     `Core translations file relative path at ${coreTranslationsRelPath}`
@@ -160,7 +181,7 @@ const run = ({ source, destinations, cwd: inputCwd, core, verbose }) => {
           );
 
         Object.entries(files).forEach(([filePath, fileContent]) => {
-          const fileLocale = path.basename(filePath, ".json");
+          const fileLocale = getFileLocale(filePath, fileLocaleSource);
 
           if (fileLocale.startsWith(locale)) {
             verbose && console.log(`  - Checking ${filePath}`);
@@ -244,6 +265,13 @@ yargs(hideBin(process.argv))
     type: "string",
     description:
       'Path to the core translations in the default language, defaults to the first file for the source language that has "core" in its path',
+  })
+  .option("fileLocaleSource", {
+    type: "string",
+    choices: ["filename", "dirname"],
+    default: "filename",
+    description:
+      "How the file's locale will be determined based on its full path",
   })
   .option("verbose", {
     alias: "v",
