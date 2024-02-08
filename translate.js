@@ -12,6 +12,11 @@ const findPaths = (text, allTexts) =>
     (key) => allTexts[key] === `$${text}$` || allTexts[key] === text
   );
 
+const findKeys = (text, allTexts) =>
+  Object.keys(allTexts).filter((key) =>
+    key.split(".").some((part) => part === `$${text}$` || part === text)
+  );
+
 const flattenObject = (obj, prefix = "") =>
   Object.entries(obj).reduce((acc, [key, value]) => {
     const currentPath = prefix.length ? prefix + "." : "";
@@ -87,6 +92,7 @@ const run = ({
   cwd: inputCwd,
   core,
   fileLocaleSource,
+  translateKeys,
   verbose,
 }) => {
   verbose &&
@@ -101,6 +107,8 @@ const run = ({
       core,
       "fileLocaleSource",
       fileLocaleSource,
+      "translateKeys",
+      translateKeys,
       "verbose",
       verbose
     );
@@ -225,6 +233,39 @@ const run = ({
                 changedFiles.push(filePath);
               }
             }
+
+            if (translateKeys) {
+              let translationKeys = findKeys(
+                translationLine[sourceLang],
+                fileContent
+              );
+
+              translationKeys.length &&
+                verbose &&
+                console.log(
+                  `    - Found in keys ${JSON.stringify(translationKeys)}`
+                );
+
+              if (translationKeys.length) {
+                verbose && console.log("    - Substituting");
+
+                translationKeys.forEach((translationKey) => {
+                  const translatedKey = translationKey.replace(
+                    translationLine[sourceLang],
+                    translation
+                  );
+
+                  if (translatedKey !== translationKey) {
+                    fileContent[translatedKey] = fileContent[translationKey];
+                    delete fileContent[translationKey];
+
+                    if (!changedFiles.includes(filePath)) {
+                      changedFiles.push(filePath);
+                    }
+                  }
+                });
+              }
+            }
           }
         });
       });
@@ -272,6 +313,10 @@ yargs(hideBin(process.argv))
     default: "filename",
     description:
       "How the file's locale will be determined based on its full path",
+  })
+  .option("translateKeys", {
+    type: "boolean",
+    description: "Will check for translations in JSON keys as well as values",
   })
   .option("verbose", {
     alias: "v",
